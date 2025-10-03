@@ -1,13 +1,17 @@
-package Brightre.utils;
+package romtech_login;
 
+
+
+import java.util.ArrayList;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
-
 import org.apache.poi.common.usermodel.HyperlinkType;
+
 import org.apache.poi.hssf.util.HSSFColor;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.CellType;
@@ -22,8 +26,6 @@ import org.apache.poi.xssf.usermodel.XSSFHyperlink;
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-
-import com.google.protobuf.compiler.PluginProtos.CodeGeneratorResponse.File;
 
 
 
@@ -104,26 +106,14 @@ public class ExcelReader {
 			  return cell.getStringCellValue();
 		else if(cell.getCellType()==CellType.NUMERIC || cell.getCellType()==CellType.FORMULA ){
 			  
-			  String cellText  = String.valueOf(cell.getNumericCellValue());
-			  if (DateUtil.isCellDateFormatted(cell)) {
-		           
-				  double d = cell.getNumericCellValue();
-
-				  Calendar cal =Calendar.getInstance();
-				  cal.setTime(DateUtil.getJavaDate(d));
-		            cellText =
-		             (String.valueOf(cal.get(Calendar.YEAR))).substring(2);
-		           cellText = cal.get(Calendar.DAY_OF_MONTH) + "/" +
-		                      cal.get(Calendar.MONTH)+1 + "/" + 
-		                      cellText;
-		           
-		          
-
-		         }
-
 			  
-			  
-			  return cellText;
+			  if(DateUtil.isCellDateFormatted(cell)) {
+			        Date date = cell.getDateCellValue();
+			        SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
+			        return sdf.format(date);
+			    } else {
+			        return String.valueOf(cell.getNumericCellValue());
+			    }
 		  }else if(cell.getCellType()==CellType.BLANK)
 		      return ""; 
 		  else 
@@ -137,7 +127,86 @@ public class ExcelReader {
 		}
 	}
 	
-	
+	// Creates a header row with the given headers in the first row of the sheet
+	// Appends new headers only if they do not exist
+public boolean appendHeaders(String sheetName, String[] newHeaders) {
+    try {
+        fis = new FileInputStream(path);
+        workbook = new XSSFWorkbook(fis);
+
+        int index = workbook.getSheetIndex(sheetName);
+        if (index == -1) {
+            workbook.createSheet(sheetName);
+            index = workbook.getSheetIndex(sheetName);
+        }
+        sheet = workbook.getSheetAt(index);
+
+        // Get first row (header row)
+        row = sheet.getRow(0);
+        if (row == null) {
+            row = sheet.createRow(0);
+        }
+
+        // Check if headers already exist
+        boolean headersExist = true;
+        for (String header : newHeaders) {
+            boolean found = false;
+            for (int i = 0; i < row.getLastCellNum(); i++) {
+                cell = row.getCell(i);
+                if (cell != null && cell.getStringCellValue().equalsIgnoreCase(header)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                headersExist = false;
+                break;
+            }
+        }
+
+        if (headersExist) {
+            System.out.println("Headers already exist in the sheet.");
+            fis.close();
+            return false;
+        }
+
+        // Find last cell index (where current headers end)
+        int lastCellNum = row.getLastCellNum();
+        if (lastCellNum < 0) {
+            lastCellNum = 0;
+        }
+
+        // Create style for new headers
+        XSSFCellStyle style = workbook.createCellStyle();
+        XSSFFont font = workbook.createFont();
+        font.setBold(true);
+        font.setColor(IndexedColors.WHITE.getIndex());
+        style.setFont(font);
+        style.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setAlignment(org.apache.poi.ss.usermodel.HorizontalAlignment.CENTER);
+
+        // Append new headers
+        for (int i = 0; i < newHeaders.length; i++) {
+            cell = row.createCell(lastCellNum + i);
+            cell.setCellValue(newHeaders[i]);
+            cell.setCellStyle(style);
+            sheet.autoSizeColumn(lastCellNum + i);
+        }
+
+        fileOut = new FileOutputStream(path);
+        workbook.write(fileOut);
+        fileOut.close();
+        fis.close();
+
+        System.out.println("Headers added successfully.");
+        return true;
+    } catch (Exception e) {
+        e.printStackTrace();
+        return false;
+    }
+}
+
 
 	public void renameSheet(int indexOfSheet, String name) throws IOException {
 		fis = new FileInputStream(path); 
@@ -544,17 +613,16 @@ public List<Integer>  getCellsRowNums(String sheetName,String colName,String cel
 	// to run this on stand alone
 	public static void main(String arg[]) throws IOException{
 		
-		 String path = "C:\\CM3.0\\app\\test\\Framework\\AutomationBvt\\src\\config\\xlfiles\\Controller.xlsx";
-		    
-		    
-		ExcelReader datatable =  new ExcelReader(path);
+		
+		ExcelReader datatable = null;
 		
 
-			 datatable = new ExcelReader(path);
+			 datatable = new ExcelReader("C:\\CM3.0\\app\\test\\Framework\\AutomationBvt\\src\\config\\xlfiles\\Controller.xlsx");
 				for(int col=0 ;col< datatable.getColumnCount("TC5"); col++){
 					System.out.println(datatable.getCellData("TC5", col, 1));
 				}
 	}
 	
 	
+
 }
